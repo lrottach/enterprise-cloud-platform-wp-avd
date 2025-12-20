@@ -1,6 +1,6 @@
 # Enterprise Cloud Platform | Workload Pattern - Azure Virtual Desktop (AVD)
 
-A state-of-the-art, modular Azure Virtual Desktop deployment using Terraform and Terragrunt with a layered architecture approach.
+Modular Azure Virtual Desktop deployment using Terraform and Terragrunt with a layered architecture approach.
 
 ## Table of Contents
 
