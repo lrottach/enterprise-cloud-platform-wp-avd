@@ -60,3 +60,8 @@ terragrunt-debug.tfvars.json
 # Ignore all local history of files
 .history
 .ionide
+
+### Environment Files ###
+# Local environment files with secrets
+.env
+.env.local

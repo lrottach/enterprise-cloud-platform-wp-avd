@@ -1,6 +1,10 @@
 # Includes merge "inputs", with last include taking precedence over previously defined.
 # Expose: allows content (e.g. locals) to be used by "include"
 
+terraform {
+  source = "${get_repo_root()}/src/avd_compute_gallery"
+}
+
 # Includes
 include "root-common" {
   path           = format("%s/common/root-common.hcl", get_repo_root())
