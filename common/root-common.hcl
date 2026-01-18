@@ -10,7 +10,7 @@ locals {
     local.env_vars.locals,
     local.level_vars.locals,
     local.area_vars.locals,
-    local.unit_common_vars.locals
+    # local.unit_common_vars.locals # TODO: Add unit-common.hcl support later
   )
 
   terraform_command = get_terraform_command()
@@ -25,7 +25,7 @@ locals {
     deployment_env    = local.merged_locals.ecp_deployment_env
     deployment_number = local.merged_locals.ecp_deployment_number
     deployment_area   = local.merged_locals.ecp_deployment_area
-    deployment_unit   = try(local.merged_locals.ecp_deployment_unit, local.deployment_unit_default)
+    deployment_unit   = try(local.merged_locals.ecp_deployment_unit, "main") # TODO: Add deployment_unit_default variable later
     environment_name  = lower("${local.merged_locals.ecp_deployment_code}-${substr(local.merged_locals.ecp_deployment_env, 0, 1)}${local.merged_locals.ecp_deployment_number}")
   }
 
@@ -63,13 +63,14 @@ terraform {
       "-lock=false" # assure we don't need "Blob Data Contributor"
     ]
   }
-  extra_arguments "plan" {
-    commands = ["plan"]
-    arguments = [
-      "--out=${local.tfplan_path}${basename(path_relative_to_include())}.tfplan",
-      "-lock=false" # assure we don't need "Blob Data Contributor"
-    ]
-  }
+  # TODO: Add tfplan_path variable and enable plan output later
+  # extra_arguments "plan" {
+  #   commands = ["plan"]
+  #   arguments = [
+  #     "--out=${local.tfplan_path}${basename(path_relative_to_include())}.tfplan",
+  #     "-lock=false" # assure we don't need "Blob Data Contributor"
+  #   ]
+  # }
 }
 
 # Generate azurerm provider
@@ -97,6 +98,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "${local.tf_provider_azurerm_version}"
     }
+    azurecaf = {
+      source  = "aztfmod/azurecaf"
+      version = "~> 1.2.31"
+    }
   }
 }
 EOF
@@ -105,7 +110,7 @@ EOF
 inputs = {
   azure_location = local.ecp_azure_main_location
   azure_resource_name_elements = {
-    prefixes      = [local.ecp_environment_name]
+    prefixes      = [local.ecp_deployment_data_object.environment_name]
     name          = local.merged_locals.ecp_deployment_area
     suffixes      = [try(local.merged_locals.ecp_deployment_unit, "main")]
     random_length = try(local.merged_locals.ecp_resource_name_random_length, 0)
@@ -113,8 +118,8 @@ inputs = {
 
   azure_tags = local.root_common_azure_tags
 
-  ecp_environment_name = local.ecp_environment_name
+  ecp_environment_name = local.ecp_deployment_data_object.environment_name
 
   # ECP Platform Azure Subscriptions variables
-  ecp_management_subscription_id = local.ecp_management_subscription_id
+  # ecp_management_subscription_id = local.ecp_management_subscription_id # TODO: Add management subscription support later
 }
