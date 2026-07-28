@@ -43,7 +43,7 @@
     ],
     "deny": [
       "Edit(.env)",
-      "Edit(.env.*)",
+      "Edit(.env.local)",
       "Edit(**/*.tfvars)",
       "Edit(**/*.tfvars.json)",
       "Edit(**/*.tfstate)",
