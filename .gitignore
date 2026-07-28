@@ -34,9 +34,17 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+# Ignore lock files — provider versions are pinned centrally in the generated
+# versions.tf (common/root-common.hcl), following ECP convention
+.terraform.lock.hcl
+**/.terraform.lock.hcl
+
 ### Terragrunt ###
 # terragrunt cache directories
 **/.terragrunt-cache/*
+
+# generated stack units (`terragrunt stack generate`)
+**/.terragrunt-stack/
 
 # Terragrunt debug output file (when using `--terragrunt-debug` option)
 # See: https://terragrunt.gruntwork.io/docs/reference/cli-options/#terragrunt-debug

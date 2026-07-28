@@ -64,6 +64,6 @@
   },
   "env": {
     "TF_CLI_ARGS": "-no-color",
-    "TERRAGRUNT_NO_COLOR": "true"
+    "TG_NO_COLOR": "true"
   }
 }
