@@ -92,27 +92,53 @@ The pattern will ultimately support two flavors from the same code base:
 
 Not a current priority, but **design for it now**: keep security/encryption settings (VM `securityProfile`, disk encryption sets, CMK configuration) as module variables with sensible regular-AVD defaults rather than hard-coded values, so the confidential flavor can be layered in without restructuring modules.
 
-## Terragrunt Conventions (from ECP)
+## Terragrunt Conventions
+
+> **Implicit stacks** (classic directory tree), matching the ECP conf repo — the well-known `level/area/unit` construct. Explicit Terragrunt Stacks (`terragrunt.stack.hcl`) were evaluated and deliberately deferred; they remain the intended option for repeating units (e.g. N host pools) once that repetition materializes, and can be adopted selectively inside a level directory without touching the root machinery.
 
 ### Configuration hierarchy
 
 Deep-merged include chain, each layer overriding the previous:
 
 ```
-root-common.hcl -> root.hcl -> env.hcl -> level.hcl -> area.hcl -> terragrunt.hcl
+root-common.hcl -> root.hcl -> env.hcl -> level.hcl -> area.hcl -> unit-common -> terragrunt.hcl
 ```
 
-- All includes use `merge_strategy = "deep"` and `expose = false`; `root-common.hcl` re-reads the parent files itself (`read_terragrunt_config`) and merges their locals into `merged_locals`.
-- Directory depth is structurally significant (relative `../..` paths in root-common) — do not add or remove hierarchy levels without adjusting root-common.
+```
+common/
+├── root-common.hcl            # machinery: locals merge, remote_state, provider generation
+└── units/<label>.hcl          # unit-common files (single-repo fold-in of ECP tgcommon), named
+                               # after the dependency-label convention, e.g. l0-img-gallery.hcl
+environments/
+├── root.hcl                   # workload identity: tenant, deployment code/number, location, root tags
+└── <env>/
+    ├── env.hcl                # deployment_env, subscription, standalone backend fallback, env tag
+    └── level<N>/
+        ├── level.hcl          # ecp_deployment_level
+        └── <area>/
+            ├── area.hcl       # ecp_deployment_area
+            └── <unit>/
+                └── terragrunt.hcl   # includes only — six blocks, nothing else
+```
+
+- All includes use `merge_strategy = "deep"` and `expose = false`; `root-common.hcl` re-reads the parent layers itself via `find_in_parent_folders()` (depth-independent — an improvement over ECP's fixed `../..` paths) and merges their locals into `merged_locals`.
+- The unit terragrunt.hcl contains **only** the six include blocks; `terraform.source` and the `workloadBlockName` tag live in the unit-common file under `common/units/`.
+- `ecp_deployment_unit` defaults to the unit folder name (`basename(get_original_terragrunt_dir())`).
 - Layer `inputs` are guarded so unset values never override lower layers: `length(try(local.x, "")) > 0 ? { ... } : {}`.
-- Because this is a single repo, the ECP `unit-common.hcl` layer (from tgcommon) is folded into this repository rather than pulled in via submodule.
+- Adding a unit = unit-common file under `common/units/` + folder with the six-include terragrunt.hcl. Adding an environment = `env.hcl` + the level/area/unit tree.
 
 ### Remote state
 
 - Backend `azurerm`, `use_azuread_auth = true` — never access keys.
-- State key: `"${basename(path_relative_to_include())}.tfstate"` (unit folder name).
-- Backend configuration via environment variables first (ECP pipeline sets `ECP_TG_BACKEND_LEVEL{N}_*`: `SUBSCRIPTION_ID`, `RESOURCE_GROUP_NAME`, `NAME`, `CONTAINER`), with a configuration fallback for standalone mode.
+- State key: repo-root-relative → `<env>/level<N>/<area>/<unit>.tfstate` (e.g. `dev/level0/imaging/gallery.tfstate`). Unique across environments even on a shared storage account.
+- Standalone layout decision: **one storage account, one shared `tfstate` container** for all environments; ECP mode gets one vended storage account per environment automatically.
+- Backend configuration three-tier resolution (first complete tier wins):
+  1. `ECP_TG_BACKEND_LEVEL{N}_*` env vars (ECP platform pipeline compatibility)
+  2. `ECP_TG_BACKEND_*` env vars (primary for this pattern — one storage account per vended subscription)
+  3. `ecp_backend_*` locals in `env.hcl` (standalone fallback)
+- Azure context resolution: `ECP_TG_TENANT_ID` / `ECP_TG_SUBSCRIPTION_ID` env vars override `ecp_entra_tenant_id` (root.hcl) / `ecp_workload_subscription_id` (env.hcl).
 - Lock timeout 20 minutes: `extra_arguments "retry_lock"` with `-lock-timeout=20m`; `init` runs with `-lock=false`.
+- `.terraform.lock.hcl` files are **gitignored** (ECP convention) — the generated `versions.tf` pins are the source of truth.
 
 ### Provider generation
 
@@ -213,7 +239,7 @@ Structured objects/maps with stable shapes (`{ id, name, resource_group_name, lo
 
 ### Tags
 
-Tags are merged across the Terragrunt hierarchy. Layer contributions: `createdBy = "ecp-terraform"` (root-common), `businessUnit`/`workloadName`/`workloadOwner` (root), `environment` (env), `workloadBlockName` (unit). Always pass `var.azure_tags` to every resource.
+Tags are merged across the Terragrunt hierarchy. Layer contributions: `createdBy = "ecp-terraform"` (root-common), `businessUnit`/`workloadName`/`workloadOwner` (root), `environment` (env), `workloadBlockName` (unit-common). Always pass `var.azure_tags` to every resource.
 
 ## ECP Integration Contract
 
@@ -249,11 +275,14 @@ In standalone mode these same practices apply by default; the pattern provides i
 ```bash
 terraform fmt -recursive          # format Terraform
 terragrunt hcl format             # format Terragrunt (modern command)
-terraform validate                # validate a module
-terragrunt validate               # validate a unit
+terragrunt hcl validate           # lint all hcl (works from repo root)
+terragrunt validate               # validate a unit (run inside the unit folder)
+terragrunt render --json          # inspect a unit's merged config (inputs, backend, generate blocks)
 terragrunt plan                   # plan a unit
-terragrunt run-all plan           # plan a whole level
+terragrunt run --all plan         # plan a whole level/environment subtree
 ```
+
+Local runs without Azure access: export dummy `ECP_TG_BACKEND_*` values (see `.env.example`) so backend resolution succeeds, then use `terragrunt init -backend=false` + `terragrunt validate` inside a unit.
 
 ### Pipelines
 

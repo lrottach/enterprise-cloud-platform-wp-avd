@@ -1,6 +1,7 @@
 locals {
-  ecp_deployment_area = ""
-  area_azure_tags     = {}
+  ecp_deployment_area = "imaging"
+
+  area_azure_tags = {}
 }
 
 inputs = {

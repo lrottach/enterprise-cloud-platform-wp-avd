@@ -1,48 +1,37 @@
-# Includes merge "inputs", with last include taking precedence over previously defined.
-# Expose: allows content (e.g. locals) to be used by "include"
+# Includes merge "inputs" deep, with the last include taking precedence.
 
-terraform {
-  source = "${get_repo_root()}/src/avd_compute_gallery"
-}
-
-# Includes
-include "root-common" {
-  path           = format("%s/common/root-common.hcl", get_repo_root())
-  expose         = false
+include "root_common" {
+  path           = "${get_repo_root()}/common/root-common.hcl"
   merge_strategy = "deep"
+  expose         = false
 }
 
 include "root" {
   path           = find_in_parent_folders("root.hcl")
-  expose         = false
   merge_strategy = "deep"
+  expose         = false
 }
 
 include "env" {
   path           = find_in_parent_folders("env.hcl")
-  expose         = false
   merge_strategy = "deep"
+  expose         = false
 }
 
 include "level" {
   path           = find_in_parent_folders("level.hcl")
-  expose         = false
   merge_strategy = "deep"
+  expose         = false
 }
 
 include "area" {
   path           = find_in_parent_folders("area.hcl")
-  expose         = false
   merge_strategy = "deep"
+  expose         = false
 }
 
-locals {
-  module_azure_tags = {
-    workloadBlockName = "avd-imaging-gallery"
-  }
-}
-
-inputs = {
-  # unit inputs mostly from unit-common.hcl
-  azure_tags = local.module_azure_tags
+include "unit_common" {
+  path           = "${get_repo_root()}/common/units/l0-img-gallery.hcl"
+  merge_strategy = "deep"
+  expose         = false
 }

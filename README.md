@@ -62,7 +62,7 @@ The Enterprise Cloud Platform this pattern integrates with:
 
 ## Roadmap
 
-- [ ] Rewrite of the Terragrunt configuration hierarchy on latest Terragrunt
+- [x] Rewrite of the Terragrunt configuration hierarchy on latest Terragrunt — classic ECP-style `level/area/unit` tree (implicit stacks) with shared unit-common files under `common/units/`
 - [ ] Level 0: AVD foundation modules (compute gallery, monitoring, storage)
 - [ ] Level 1: AVD management plane (workspaces, host pools, application groups)
 - [ ] Level 2: Session host deployment (per-host-pool join type, Intune enrollment, personal vs. multi-session)
