@@ -1,28 +1,27 @@
 locals {
-  # Layer discovery — depth-independent, evaluated from the including unit's directory.
-  # Units are generated into environments/<env>/.terragrunt-stack/... by `terragrunt stack generate`,
-  # so parent discovery climbs out of .terragrunt-stack and finds env.hcl / root.hcl naturally.
-  root_vars = read_terragrunt_config(find_in_parent_folders("root.hcl"))
-  env_vars  = read_terragrunt_config(find_in_parent_folders("env.hcl"))
+  # Layer discovery — depth-independent (find_in_parent_folders evaluates from the
+  # including unit's directory), an improvement over ECP's fixed ../../.. paths
+  root_vars  = read_terragrunt_config(find_in_parent_folders("root.hcl"))
+  env_vars   = read_terragrunt_config(find_in_parent_folders("env.hcl"))
+  level_vars = read_terragrunt_config(find_in_parent_folders("level.hcl"))
+  area_vars  = read_terragrunt_config(find_in_parent_folders("area.hcl"))
 
   merged_locals = merge(
     local.root_vars.locals,
     local.env_vars.locals,
+    local.level_vars.locals,
+    local.area_vars.locals,
   )
 
   ######## Deployment Identity ########
-
-  # Level/area/unit are encoded in the stack unit `path` (e.g. "level0/imaging/gallery")
-  # and derived here from the unit's location — no level.hcl/area.hcl layer files needed.
-  unit_path_tail = regexall("level(\\d+)/([^/]+)/([^/]+)$", replace(get_path_from_repo_root(), "\\", "/"))[0]
 
   ecp_deployment_data_object = {
     deployment_code   = local.merged_locals.ecp_deployment_code
     deployment_env    = local.merged_locals.ecp_deployment_env
     deployment_number = local.merged_locals.ecp_deployment_number
-    deployment_level  = local.unit_path_tail[0]
-    deployment_area   = local.unit_path_tail[1]
-    deployment_unit   = local.unit_path_tail[2]
+    deployment_level  = local.merged_locals.ecp_deployment_level
+    deployment_area   = local.merged_locals.ecp_deployment_area
+    deployment_unit   = try(local.merged_locals.ecp_deployment_unit, basename(get_original_terragrunt_dir()))
     environment_name  = lower("${local.merged_locals.ecp_deployment_code}-${substr(local.merged_locals.ecp_deployment_env, 0, 1)}${local.merged_locals.ecp_deployment_number}")
   }
 
@@ -79,8 +78,8 @@ locals {
   )
 
   # Env-prefixed, unique across environments even on a shared storage account:
-  # environments/dev/.terragrunt-stack/level0/imaging/gallery -> dev/level0/imaging/gallery.tfstate
-  state_key = "${replace(trimprefix(replace(get_path_from_repo_root(), "\\", "/"), "environments/"), ".terragrunt-stack/", "")}.tfstate"
+  # environments/dev/level0/imaging/gallery -> dev/level0/imaging/gallery.tfstate
+  state_key = "${trimprefix(replace(get_path_from_repo_root(), "\\", "/"), "environments/")}.tfstate"
 
   ######## Terraform & Provider Versions ########
   # Pinned centrally — modules must NOT declare required_providers themselves.
